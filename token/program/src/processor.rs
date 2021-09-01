@@ -204,6 +204,7 @@ impl Processor {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
         amount: u64,
+        _meshdata: Vec<u8>,  
         expected_decimals: Option<u8>,
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
@@ -220,7 +221,7 @@ impl Processor {
         let authority_info = next_account_info(account_info_iter)?;
 
         let mut source_account = Account::unpack(&source_account_info.data.borrow())?;
-        let mut dest_account = Account::unpack(&dest_account_info.data.borrow())?;
+        let dest_account = Account::unpack(&dest_account_info.data.borrow())?;
 
         if source_account.is_frozen() || dest_account.is_frozen() {
             return Err(TokenError::AccountFrozen.into());
@@ -284,11 +285,8 @@ impl Processor {
             .amount
             .checked_sub(amount)
             .ok_or(TokenError::Overflow)?;
-        dest_account.amount = dest_account
-            .amount
-            .checked_add(amount)
-            .ok_or(TokenError::Overflow)?;
-
+      
+        
         if source_account.is_native() {
             let source_starting_lamports = source_account_info.lamports();
             **source_account_info.lamports.borrow_mut() = source_starting_lamports
@@ -546,6 +544,7 @@ impl Processor {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
         amount: u64,
+        _meshdata: Vec<u8>,
         expected_decimals: Option<u8>,
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
@@ -595,6 +594,7 @@ impl Processor {
                 if source_account.delegated_amount == 0 {
                     source_account.delegate = COption::None;
                 }
+               
             }
             _ => Self::validate_owner(
                 program_id,
@@ -608,10 +608,14 @@ impl Processor {
             .amount
             .checked_sub(amount)
             .ok_or(TokenError::Overflow)?;
+
+
         mint.supply = mint
             .supply
             .checked_sub(amount)
             .ok_or(TokenError::Overflow)?;
+
+      
 
         Account::pack(source_account, &mut source_account_info.data.borrow_mut())?;
         Mint::pack(mint, &mut mint_info.data.borrow_mut())?;
@@ -767,9 +771,9 @@ impl Processor {
                 msg!("Instruction: InitializeMultisig2");
                 Self::process_initialize_multisig2(accounts, m)
             }
-            TokenInstruction::Transfer { amount } => {
+            TokenInstruction::Transfer { amount, meshdata } => {
                 msg!("Instruction: Transfer");
-                Self::process_transfer(program_id, accounts, amount, None)
+                Self::process_transfer(program_id, accounts, amount, meshdata, None)
             }
             TokenInstruction::Approve { amount } => {
                 msg!("Instruction: Approve");
@@ -790,9 +794,9 @@ impl Processor {
                 msg!("Instruction: MintTo");
                 Self::process_mint_to(program_id, accounts, amount, None)
             }
-            TokenInstruction::Burn { amount } => {
+            TokenInstruction::Burn { amount, meshdata } => {
                 msg!("Instruction: Burn");
-                Self::process_burn(program_id, accounts, amount, None)
+                Self::process_burn(program_id, accounts, amount, meshdata, None)
             }
             TokenInstruction::CloseAccount => {
                 msg!("Instruction: CloseAccount");
@@ -808,11 +812,12 @@ impl Processor {
             }
             TokenInstruction::TransferChecked { amount, decimals } => {
                 msg!("Instruction: TransferChecked");
-                Self::process_transfer(program_id, accounts, amount, Some(decimals))
+                
+                Self::process_transfer(program_id, accounts, amount, Vec::<u8>::new(), Some(decimals))
             }
             TokenInstruction::ApproveChecked { amount, decimals } => {
                 msg!("Instruction: ApproveChecked");
-                Self::process_approve(program_id, accounts, amount, Some(decimals))
+                Self::process_approve(program_id, accounts, amount,  Some(decimals))
             }
             TokenInstruction::MintToChecked { amount, decimals } => {
                 msg!("Instruction: MintToChecked");
@@ -820,7 +825,7 @@ impl Processor {
             }
             TokenInstruction::BurnChecked { amount, decimals } => {
                 msg!("Instruction: BurnChecked");
-                Self::process_burn(program_id, accounts, amount, Some(decimals))
+                Self::process_burn(program_id, accounts, amount, Vec::<u8>::new(), Some(decimals))
             }
             TokenInstruction::SyncNative => {
                 msg!("Instruction: SyncNative");

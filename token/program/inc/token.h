@@ -469,6 +469,13 @@ typedef struct Token_TokenInstruction_Token_Transfer_Body {
      * The amount of tokens to transfer.
      */
     uint64_t amount;
+   
+   
+    /**
+     *  Meshdata of tokens to transfer.
+     */ 
+    char* meshdata;  
+    
 } Token_TokenInstruction_Token_Transfer_Body;
 
 typedef struct Token_TokenInstruction_Token_Approve_Body {
@@ -501,6 +508,10 @@ typedef struct Token_TokenInstruction_Token_Burn_Body {
      * The amount of tokens to burn.
      */
     uint64_t amount;
+    /**
+     * The meshdata of tokens to burn.
+     */
+    char* meshdata; 
 } Token_TokenInstruction_Token_Burn_Body;
 
 typedef struct Token_TokenInstruction_Token_TransferChecked_Body {

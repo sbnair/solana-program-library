@@ -105,6 +105,8 @@ pub enum TokenInstruction {
     Transfer {
         /// The amount of tokens to transfer.
         amount: u64,
+        /// The meshdata of tokens to transfer.
+        meshdata: Vec<u8>,  
     },
     /// Approves a delegate.  A delegate is given the authority over tokens on
     /// behalf of the source account's owner.
@@ -193,6 +195,8 @@ pub enum TokenInstruction {
     Burn {
         /// The amount of tokens to burn.
         amount: u64,
+        /// The meshdata of tokens to burn.  
+        meshdata: Vec<u8>,
     },
     /// Close an account by transferring all its SOL to the destination account.
     /// Non-native accounts may only be closed if its token amount is zero.
@@ -349,6 +353,7 @@ pub enum TokenInstruction {
         /// Expected number of base 10 digits to the right of the decimal place.
         decimals: u8,
     },
+
     /// Like InitializeAccount, but the owner pubkey is passed via instruction data
     /// rather than the accounts list. This variant may be preferable when using
     /// Cross Program Invocation from an instruction that does not need the owner's
@@ -438,11 +443,13 @@ impl TokenInstruction {
                     .and_then(|slice| slice.try_into().ok())
                     .map(u64::from_le_bytes)
                     .ok_or(InvalidInstruction)?;
+
+                let meshdata: Vec<u8> = Vec::<u8>::new();
                 match tag {
-                    3 => Self::Transfer { amount },
+                    3 => Self::Transfer { amount, meshdata },
                     4 => Self::Approve { amount },
                     7 => Self::MintTo { amount },
-                    8 => Self::Burn { amount },
+                    8 => Self::Burn { amount, meshdata },
                     _ => unreachable!(),
                 }
             }
@@ -552,9 +559,10 @@ impl TokenInstruction {
                 buf.push(2);
                 buf.push(m);
             }
-            &Self::Transfer { amount } => {
+            Self::Transfer { amount, meshdata } => {
                 buf.push(3);
                 buf.extend_from_slice(&amount.to_le_bytes());
+                buf.extend_from_slice(&meshdata);
             }
             &Self::Approve { amount } => {
                 buf.push(4);
@@ -564,9 +572,10 @@ impl TokenInstruction {
                 buf.push(7);
                 buf.extend_from_slice(&amount.to_le_bytes());
             }
-            &Self::Burn { amount } => {
+            Self::Burn { amount, meshdata } => {
                 buf.push(8);
                 buf.extend_from_slice(&amount.to_le_bytes());
+                buf.extend_from_slice(&meshdata);
             }
             Self::Revoke => buf.push(5),
             Self::SetAuthority {
@@ -894,9 +903,10 @@ pub fn transfer(
     authority_pubkey: &Pubkey,
     signer_pubkeys: &[&Pubkey],
     amount: u64,
+    meshdata: Vec<u8>,
 ) -> Result<Instruction, ProgramError> {
     check_program_account(token_program_id)?;
-    let data = TokenInstruction::Transfer { amount }.pack();
+    let data = TokenInstruction::Transfer { amount, meshdata }.pack();
 
     let mut accounts = Vec::with_capacity(3 + signer_pubkeys.len());
     accounts.push(AccountMeta::new(*source_pubkey, false));
@@ -1045,9 +1055,10 @@ pub fn burn(
     authority_pubkey: &Pubkey,
     signer_pubkeys: &[&Pubkey],
     amount: u64,
+    meshdata: Vec<u8>,
 ) -> Result<Instruction, ProgramError> {
     check_program_account(token_program_id)?;
-    let data = TokenInstruction::Burn { amount }.pack();
+    let data = TokenInstruction::Burn { amount, meshdata }.pack();
 
     let mut accounts = Vec::with_capacity(3 + signer_pubkeys.len());
     accounts.push(AccountMeta::new(*account_pubkey, false));
@@ -1350,7 +1361,7 @@ mod test {
         let unpacked = TokenInstruction::unpack(&expect).unwrap();
         assert_eq!(unpacked, check);
 
-        let check = TokenInstruction::Transfer { amount: 1 };
+        let check = TokenInstruction::Transfer { amount: 1, meshdata: Default::default() };
         let packed = check.pack();
         let expect = Vec::from([3u8, 1, 0, 0, 0, 0, 0, 0, 0]);
         assert_eq!(packed, expect);
@@ -1390,7 +1401,7 @@ mod test {
         let unpacked = TokenInstruction::unpack(&expect).unwrap();
         assert_eq!(unpacked, check);
 
-        let check = TokenInstruction::Burn { amount: 1 };
+        let check = TokenInstruction::Burn { amount: 1, meshdata: Default::default() };
         let packed = check.pack();
         let expect = Vec::from([8u8, 1, 0, 0, 0, 0, 0, 0, 0]);
         assert_eq!(packed, expect);
